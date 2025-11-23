@@ -2,6 +2,9 @@
 #include "mssql_connection.hpp"
 #include "mssql_utils.hpp"
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/types/date.hpp"
+#include "duckdb/common/types/time.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 
 namespace duckdb {
 

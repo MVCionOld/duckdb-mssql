@@ -1,6 +1,7 @@
 #include "storage/mssql_catalog.hpp"
 #include "storage/mssql_transaction.hpp"
 #include "storage/mssql_schema_entry.hpp"
+#include "storage/mssql_table_entry.hpp"
 #include "mssql_utils.hpp"
 #include "duckdb/parser/parsed_data/attach_info.hpp"
 #include "duckdb/storage/database_size.hpp"
@@ -24,19 +25,66 @@ void MSSQLCatalog::Initialize(bool load_builtin) {
 	// Load schema information
 }
 
-optional_ptr<CatalogEntry> MSSQLCatalog::GetEntry(ClientContext &context, const string &schema, const string &name) {
+optional_ptr<CatalogEntry> MSSQLCatalog::CreateSchema(CatalogTransaction transaction, CreateSchemaInfo &info) {
+	throw BinderException("MS SQL Server does not support creating schemas through DuckDB yet");
+}
+
+void MSSQLCatalog::DropSchema(ClientContext &context, DropInfo &info) {
+	throw BinderException("MS SQL Server does not support dropping schemas through DuckDB yet");
+}
+
+void MSSQLCatalog::ScanSchemas(ClientContext &context, std::function<void(SchemaCatalogEntry &)> callback) {
 	lock_guard<mutex> l(catalog_lock);
 	
-	auto schema_entry = schemas.find(schema);
-	if (schema_entry == schemas.end()) {
-		// Create schema entry on-demand
-		auto new_schema = make_uniq<MSSQLSchemaEntry>(*this, schema);
-		auto schema_ptr = new_schema.get();
-		schemas[schema] = std::move(new_schema);
-		return schema_ptr->GetEntry(CatalogType::TABLE_ENTRY, name);
+	// Query MS SQL Server for schemas
+	auto &conn = GetConnection();
+	string query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA";
+	
+	auto result = conn.Query(query);
+	auto &chunk = result->NextChunk();
+	
+	for (idx_t i = 0; i < chunk.size(); i++) {
+		auto schema_name = chunk.GetValue(0, i).ToString();
+		
+		auto schema_entry = schemas.find(schema_name);
+		if (schema_entry == schemas.end()) {
+			auto new_schema = make_uniq<MSSQLSchemaEntry>(*this, schema_name);
+			auto schema_ptr = new_schema.get();
+			schemas[schema_name] = std::move(new_schema);
+			callback(*schema_ptr);
+		} else {
+			callback(*schema_entry->second);
+		}
+	}
+}
+
+optional_ptr<SchemaCatalogEntry> MSSQLCatalog::GetSchema(CatalogTransaction transaction, const string &schema_name,
+                                                          OnEntryNotFound if_not_found, QueryErrorContext error_context) {
+	lock_guard<mutex> l(catalog_lock);
+	
+	auto schema_entry = schemas.find(schema_name);
+	if (schema_entry != schemas.end()) {
+		return schema_entry->second.get();
 	}
 	
-	return schema_entry->second->GetEntry(CatalogType::TABLE_ENTRY, name);
+	// Try to load schema from database
+	auto new_schema = make_uniq<MSSQLSchemaEntry>(*this, schema_name);
+	auto schema_ptr = new_schema.get();
+	schemas[schema_name] = std::move(new_schema);
+	
+	return schema_ptr;
+}
+
+DatabaseSize MSSQLCatalog::GetDatabaseSize(ClientContext &context) {
+	return DatabaseSize();
+}
+
+bool MSSQLCatalog::InMemory() {
+	return false;
+}
+
+string MSSQLCatalog::GetDBPath() {
+	return string();
 }
 
 MSSQLConnection &MSSQLCatalog::GetConnection() {

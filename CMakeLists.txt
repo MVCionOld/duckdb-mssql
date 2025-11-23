@@ -10,12 +10,27 @@ set(EXTENSION_NAME ${TARGET_NAME}_extension)
 include_directories(src/include)
 include_directories(${ODBC_INCLUDE_DIRS})
 
-add_subdirectory(src)
+# List all source files
+set(EXTENSION_SOURCES
+    src/mssql_extension.cpp
+    src/mssql_connection.cpp
+    src/mssql_scanner.cpp
+    src/mssql_result.cpp
+    src/mssql_types.cpp
+    src/mssql_utils.cpp
+    src/mssql_execute.cpp
+    src/storage/mssql_catalog.cpp
+    src/storage/mssql_schema_entry.cpp
+    src/storage/mssql_table_entry.cpp
+    src/storage/mssql_transaction.cpp
+    src/storage/mssql_optimizer.cpp
+)
 
 set(PARAMETERS "-no-warnings")
-build_loadable_extension(${TARGET_NAME} ${PARAMETERS} ${ALL_OBJECT_FILES})
+build_loadable_extension(${TARGET_NAME} ${PARAMETERS} ${EXTENSION_SOURCES})
 
 # Loadable binary
 target_include_directories(${TARGET_NAME}_loadable_extension
                            PRIVATE src/include ${ODBC_INCLUDE_DIRS})
 target_link_libraries(${TARGET_NAME}_loadable_extension ${ODBC_LIBRARIES})
+

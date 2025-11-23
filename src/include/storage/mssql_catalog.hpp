@@ -10,6 +10,7 @@
 
 #include "duckdb/catalog/catalog.hpp"
 #include "duckdb/common/case_insensitive_map.hpp"
+#include "duckdb/storage/storage_extension.hpp"
 #include "mssql_connection.hpp"
 #include "mssql_schema_entry.hpp"
 
@@ -27,7 +28,17 @@ public:
 	}
 
 	void Initialize(bool load_builtin) override;
-	optional_ptr<CatalogEntry> GetEntry(ClientContext &context, const string &schema, const string &name);
+	
+	optional_ptr<CatalogEntry> CreateSchema(CatalogTransaction transaction, CreateSchemaInfo &info) override;
+	void DropSchema(ClientContext &context, DropInfo &info) override;
+	void ScanSchemas(ClientContext &context, std::function<void(SchemaCatalogEntry &)> callback) override;
+	optional_ptr<SchemaCatalogEntry> GetSchema(CatalogTransaction transaction, const string &schema_name,
+	                                            OnEntryNotFound if_not_found,
+	                                            QueryErrorContext error_context = QueryErrorContext()) override;
+	
+	DatabaseSize GetDatabaseSize(ClientContext &context) override;
+	bool InMemory() override;
+	string GetDBPath() override;
 
 	MSSQLConnection &GetConnection();
 	static MSSQLCatalog &Get(ClientContext &context, const string &catalog_name);

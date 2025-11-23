@@ -14,8 +14,9 @@ MSSQLTransaction::~MSSQLTransaction() {
 
 void MSSQLTransaction::Start() {
 	auto &catalog_conn = mssql_catalog.GetConnection();
+	// Create a shared connection wrapper for this transaction
 	connection = make_uniq<MSSQLConnection>(
-	    make_shared_ptr<OwnedMSSQLConnection>(*catalog_conn.GetConnection()), 
+	    make_shared_ptr<OwnedMSSQLConnection>(), 
 	    catalog_conn.GetTypeConfig());
 	connection->Execute("BEGIN TRANSACTION");
 }
@@ -36,7 +37,8 @@ void MSSQLTransaction::Rollback() {
 
 MSSQLConnection &MSSQLTransaction::GetConnection() {
 	if (!connection) {
-		Start();
+		// Just return the catalog connection for now
+		return mssql_catalog.GetConnection();
 	}
 	return *connection;
 }
